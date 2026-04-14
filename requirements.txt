@@ -1,0 +1,16 @@
+jupyterlab
+ipykernel
+numpy
+pandas
+matplotlib
+seaborn
+statsmodels
+scikit-learn
+tqdm
+lightgbm
+catboost
+xgboost
+optuna
+kaggle
+nbformat
+nbconvert
