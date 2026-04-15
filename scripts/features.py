@@ -1,4 +1,5 @@
 import pandas as pd
+
 def add_date_features(df):
     date_features = pd.concat([
         df["date"].dt.dayofweek.rename("dayofweek"),
@@ -13,7 +14,7 @@ def add_date_features(df):
     return pd.concat([df, date_features], axis=1)
 
 def add_lag_features(df):
-    grouped = df.groupby(['store_nbr','family')['sales']
+    grouped = df.groupby(['store_nbr','family'])['sales']
     lags = {15: 'lag_15', 28: 'lag_28', 364: 'lag_364'}
     for shift, col in lags.items():
         df[col] = grouped.shift(shift)
@@ -21,7 +22,6 @@ def add_lag_features(df):
 
 def add_payday_features(df):
     df = df.copy()
-    df["date"] = pd.to_datetime(df["date"])
     
     def days_to_next_payday(date):
         day = date.day
@@ -49,32 +49,16 @@ def add_payday_features(df):
     df["days_since_payday"] = df["date"].apply(days_since_last_payday)
     return df
 
+def add_rolling_features(df):
+    grouped = df.groupby(['store_nbr', 'family'])['sales']
+    df['rolling_mean_7']  = grouped.transform(lambda x: x.shift(15).rolling(7).mean())
+    df['rolling_mean_28'] = grouped.transform(lambda x: x.shift(15).rolling(28).mean())
+    df['rolling_std_7']   = grouped.transform(lambda x: x.shift(15).rolling(7).std())
+    return df
+    
 def build_features(df):
     df = add_date_features(df)
     df = add_lag_features(df)
     df = add_payday_features(df)
+    df = add_rolling_features(df)
     return df
-
-def one_hot_encoder(df, nan_as_category=True):
-    # One hot encode all object/category columns.
-    # Leave non-categorical columns unchanged.
-    # If nan_as_category=True, include missing-value dummy columns.
-    # Replace spaces in output column names with underscores.
-    # Return the encoded dataframe and the list of newly created columns in output order.
-
-    original_columns = list(df.columns)
-    
-    categorical_columns = df.select_dtypes(["category", "object", "str"]).columns.tolist()
-    
-    df = pd.get_dummies(df, columns=categorical_columns, dummy_na=nan_as_category)
-    
-    rename_map = {
-        col: col.replace(" ", "_")
-        for col in df.columns
-        if col not in original_columns
-    }
-    
-    df = df.rename(columns=rename_map)
-    new_columns = [rename_map[col] for col in rename_map]
-
-    return df, new_columns
