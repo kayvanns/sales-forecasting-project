@@ -1,17 +1,18 @@
-import pandas as pd
-
 def add_date_features(df):
-    date_features = pd.concat([
-        df["date"].dt.dayofweek.rename("dayofweek"),
-        df["date"].dt.month.rename("month"),
-        df["date"].dt.year.rename("year"),
-        df["date"].dt.day.rename("day"),
-        df["date"].dt.quarter.rename("quarter"),
-        df["date"].dt.is_month_start.rename("is_month_start").astype("int32"),
-        df["date"].dt.is_month_end.rename("is_month_end").astype("int32"),
-        
-    ], axis=1)
-    return pd.concat([df, date_features], axis=1)
+    df = df.copy()
+    df['dayofweek'] = df['date'].dt.dayofweek
+    df['month']     = df['date'].dt.month
+    df['year']      = df['date'].dt.year
+    df['day']       = df['date'].dt.day
+    df['quarter']   = df['date'].dt.quarter
+    df['is_month_start'] = df['date'].dt.is_month_start.astype('int32')
+    df['is_month_end']   = df['date'].dt.is_month_end.astype('int32')
+    df['dayofyear'] = df['date'].dt.dayofyear
+    df['sin_day']   = np.sin(2 * np.pi * df['dayofyear'] / 365.25)
+    df['cos_day']   = np.cos(2 * np.pi * df['dayofyear'] / 365.25)
+    df['sin_week']  = np.sin(2 * np.pi * df['dayofweek'] / 7)
+    df['cos_week']  = np.cos(2 * np.pi * df['dayofweek'] / 7)
+    return df
 
 def add_lag_features(df):
     grouped = df.groupby(['store_nbr','family'])['sales']
@@ -22,6 +23,7 @@ def add_lag_features(df):
 
 def add_payday_features(df):
     df = df.copy()
+    df["date"] = pd.to_datetime(df["date"])
     
     def days_to_next_payday(date):
         day = date.day
@@ -57,8 +59,15 @@ def add_rolling_features(df):
     return df
     
 def build_features(df):
+    df = df.sort_values(['store_nbr', 'family', 'date']).copy()
     df = add_date_features(df)
     df = add_lag_features(df)
     df = add_payday_features(df)
     df = add_rolling_features(df)
+    df['oil_lag_1']     = df['dcoilwtico_interpolated'].shift(1)
+    df['oil_rolling_7'] = df['dcoilwtico_interpolated'].rolling(7).mean()
+    grouped_trans = df.groupby('store_nbr')['transactions']
+    df['transactions_lag_15']    = grouped_trans.shift(15)
+    df['transactions_rolling_7'] = grouped_trans.transform(lambda x: x.shift(15).rolling(7).mean())
     return df
+
